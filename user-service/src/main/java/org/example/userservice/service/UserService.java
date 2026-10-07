@@ -25,6 +25,6 @@ public class UserService {
     public User verifyLicense(UUID id) {
         User user = getUserById(id);
         user.setIsLicenseValid(true);
-        return userRepository.save(user);
+        return userRepository.save(user);;
     }
 }
