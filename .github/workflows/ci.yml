@@ -26,10 +26,89 @@ jobs:
         with:
           java-version: '21'
           distribution: 'temurin'
-          cache: 'maven' # Автоматичне кешування залежностей Maven
+          cache: 'maven'
 
       - name: Static Code Analysis (Checkstyle)
         run: ./mvnw checkstyle:check -pl ${{ matrix.service }}
 
       - name: Build and Run Tests
         run: ./mvnw clean test -pl ${{ matrix.service }}
+
+      # Додано для збереження JAR файлу після тестування
+      - name: Package JAR
+        run: ./mvnw package -DskipTests -pl ${{ matrix.service }}
+
+      - name: Upload JAR Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.service }}-jar
+          path: ${{ matrix.service }}/target/*.jar
+          retention-days: 1
+
+  docker-build-publish:
+    name: Build, Scan & Publish Docker (${{ matrix.service }})
+    needs: build-and-test
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write # Необхідно для авторизації в GHCR
+    strategy:
+      fail-fast: false
+      matrix:
+        service: [user-service, fleet-service, order-service]
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Download JAR Artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{ matrix.service }}-jar
+          path: ${{ matrix.service }}/target/
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build local image for scanning
+        uses: docker/build-push-action@v5
+        with:
+          context: ./${{ matrix.service }}
+          load: true # Завантажує образ у локальний Docker daemon без публікації
+          tags: local-${{ matrix.service }}:test
+
+      - name: Run Trivy vulnerability scanner
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: local-${{ matrix.service }}:test
+          format: 'table'
+          exit-code: '1' # Блокуючий крок у разі виявлення вразливостей
+          ignore-unfixed: true
+          vuln-type: 'os,library'
+          severity: 'CRITICAL,HIGH'
+
+      - name: Log in to GitHub Container Registry
+        if: github.event_name == 'push'
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }} # Автоматичний токен доступу Actions
+
+      - name: Extract metadata (tags, labels) for Docker
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ghcr.io/${{ github.repository }}/${{ matrix.service }}
+          tags: |
+            type=sha,format=long
+            type=raw,value=latest,enable=${{ github.ref == 'refs/heads/master' }}
+
+      - name: Push Docker image
+        if: github.event_name == 'push'
+        uses: docker/build-push-action@v5
+        with:
+          context: ./${{ matrix.service }}
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
