@@ -39,7 +39,6 @@ class OrderServiceTest {
 
     @BeforeEach
     void setUp() {
-        // Ініціалізація полів @Value для ізольованого середовища
         ReflectionTestUtils.setField(orderService, "userServiceUrl", userServiceUrl);
         ReflectionTestUtils.setField(orderService, "fleetServiceUrl", fleetServiceUrl);
     }
