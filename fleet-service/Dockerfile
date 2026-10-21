@@ -1,5 +1,6 @@
 FROM eclipse-temurin:21-jre-alpine
+RUN apk update && apk upgrade --no-cache
 WORKDIR /app
-COPY target/fleet-service-0.0.1-SNAPSHOT.jar app.jar
-EXPOSE 8082
+COPY target/*.jar app.jar
+EXPOSE 8081
 ENTRYPOINT ["java", "-jar", "app.jar"]

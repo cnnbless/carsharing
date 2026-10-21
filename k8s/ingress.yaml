@@ -1,0 +1,32 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: carsharing-ingress
+  namespace: carsharing
+spec:
+  ingressClassName: nginx
+  rules:
+    - host: carsharing.local
+      http:
+        paths:
+          - path: /api/users
+            pathType: Prefix
+            backend:
+              service:
+                name: user-service
+                port:
+                  number: 8082
+          - path: /api/cars
+            pathType: Prefix
+            backend:
+              service:
+                name: fleet-service
+                port:
+                  number: 8081
+          - path: /api/orders
+            pathType: Prefix
+            backend:
+              service:
+                name: order-service
+                port:
+                  number: 8083
