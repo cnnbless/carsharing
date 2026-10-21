@@ -27,4 +27,13 @@ public class UserService {
         user.setIsLicenseValid(true);
         return userRepository.save(user);
     }
+
+    private void validateDriverLicense(String license) {
+        if (license == null || !license.matches("^[A-Z0-9]{6,12}$")) {
+            throw new IllegalArgumentException(
+                    "Invalid driver license format. Expected 6-12 alphanumeric characters."
+            );
+        }
+    }
+
 }
